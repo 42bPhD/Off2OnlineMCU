@@ -1,0 +1,1 @@
+E:\2_Quantization\deployment-with-CMSIS-NN\CMSIS_NN_PC_simulator\Deploy_Simulator\Debug\Deploy_Simulator.exe
