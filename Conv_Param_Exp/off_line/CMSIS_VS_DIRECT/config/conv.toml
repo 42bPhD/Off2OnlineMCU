@@ -1,0 +1,19 @@
+[INPUT_PARAMS] # HWC
+IM_DIM_H = 32
+IM_DIM_W = 32
+IM_IN_CH = 3
+[CONV] # NHWC
+CONV_IN_CH = "${INPUT_PARAMS.IM_IN_CH}"
+CONV_KER_DIM_H = 3
+CONV_KER_DIM_W = 3
+OUT_CH = 64 # 64
+CONV_STRIDE_H = 1
+CONV_STRIDE_W = 1
+PADDING = "SAMD" # SAMD, VALID
+
+[OPTIMIZING]
+TCM = 0 # TCM 여부
+CACHE = 0 # Cache 사용 여부
+PIPELINING = 0 # Pipelining 사용 여부
+LOOP_UNROLLING = 0 # Loop Unrolling 사용 여부
+LOOP_INTERLEAVING = 0 # Loop Interleaving 사용 여부
