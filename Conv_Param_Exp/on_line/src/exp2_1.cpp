@@ -98,11 +98,11 @@
 //     // res = convolve_HWC_q7_Direct_HWNC_naive(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_hwnc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,
 //     //                         CONV_STRIDE_H, conv_bias, CONV_BIAS_LSHIFT, CONV_OUT_RSHIFT, res2, CONV_OUT_DIM_H,
 //     //                         (q31_t *) conv_buf, NULL);
-//     res = arm_im2col_convolve_s8_opt(img_buffer, BASIC_CONV_W, BASIC_CONV_H, BASIC_IN_CH, BASIC_INPUT_BATCHES, 
-//                             basic_weights, BASIC_OUT_CH, BASIC_FILTER_X, BASIC_FILTER_Y, BASIC_PAD_X, BASIC_PAD_Y, 
-//                             BASIC_STRIDE_X, BASIC_STRIDE_Y, basic_biases, (q7_t *)basic_output_ref, basic_output_shift,
-//                             basic_output_mult, BASIC_OUTPUT_OFFSET, BASIC_INPUT_OFFSET, BASIC_OUT_ACTIVATION_MIN, 
-//                             BASIC_OUT_ACTIVATION_MAX, BASIC_OUT_CONV_W, BASIC_OUT_CONV_H, (q15_t *) col_buffer);
+//     res = arm_im2col_convolve_s8_opt(img_buffer, TFLM_CONV_W, TFLM_CONV_H, TFLM_IN_CH, TFLM_INPUT_BATCHES, 
+//                             TFLM_weights, TFLM_OUT_CH, TFLM_FILTER_X, TFLM_FILTER_Y, TFLM_PAD_X, TFLM_PAD_Y, 
+//                             TFLM_STRIDE_X, TFLM_STRIDE_Y, TFLM_biases, (q7_t *)TFLM_output_ref, TFLM_output_shift,
+//                             TFLM_output_mult, TFLM_OUTPUT_OFFSET, TFLM_INPUT_OFFSET, TFLM_OUT_ACTIVATION_MIN, 
+//                             TFLM_OUT_ACTIVATION_MAX, TFLM_CONV_W, TFLM_CONV_H, (q15_t *) col_buffer);
 //     stop_cnt();
 //     printf("Proposed Instruction Per Cycle = %d, Don't Care= %d\n", getCycles(), res);
 //     printf("-------------------------------------------------------\n");

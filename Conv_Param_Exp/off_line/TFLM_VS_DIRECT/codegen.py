@@ -10,9 +10,11 @@ import torch  # TensorFlow를 PyTorch로 대체
 import torch.nn as nn  # PyTorch의 nn 모듈 import
 
 DEFAULT_TESTDATA_SET = 'TFLM'
-OUTDIR = '../../on_line/lib/Modules/symmetric/'
+from config import TOMLConfig as Config
+CONFIG = Config('./config/conv.toml')
 PREGEN = 'PregeneratedData/'
-
+# OUTDIR = CONFIG['ARGS']['FILENAME']
+OUTDIR = './symmetric/'
 LICENSE = '''// SPDX-License-Identifier: Apache-2.0
 // ----------------------------------------------------------------------------
 // This source code is licensed under the Apache-2.0 license found in the
@@ -83,13 +85,15 @@ class TestSettings(ABC):
         self.regenerate_new_weights = args.regenerate_weights
         self.regenerate_new_input = args.regenerate_input
         self.regenerate_new_bias = args.regenerate_biases
-        if not os.path.exists(self.parameters_file) or args.regenerate_all:
-            self.regenerate_new_bias = True
-            self.regenerate_new_weights = True
-            self.regenerate_new_input = True
-            self.save_parameters()
-        else:
-            self.load_parameters()
+        
+        self.regenerate_new_bias = True
+        self.regenerate_new_weights = True
+        self.regenerate_new_input = True
+        self.save_parameters()
+        # if os.path.exists(self.parameters_file):
+        # else:
+        #     # self.load_parameters()
+        #     raise RuntimeError("Not implemented yet")
         # self.headers_dir = os.path.join(OUTDIR, self.testdataset)
         self.headers_dir = os.path.join(OUTDIR)
 
@@ -356,11 +360,19 @@ class ConvSettings(TestSettings):
         
         # PyTorch의 conv2d 함수 사용
         if self.has_padding:
-            out = nn.functional.conv2d(indata, weights, stride=(self.stride_x, self.stride_y), padding=(self.pad_x, self.pad_y))
+            print("Padding: ", self.pad_x, self.pad_y)
+            print("Stride: ", self.stride_x, self.stride_y)
+            print("Input shape: ", indata.size())
+            print("Weights shape: ", weights.size())
+            out = nn.functional.conv2d(indata, weights, 
+                                       stride=(self.stride_x, self.stride_y), 
+                                       padding=(self.pad_x, self.pad_y),
+                                       groups=1
+                                       )
         else:
             out = nn.functional.conv2d(indata, weights, stride=(self.stride_x, self.stride_y))
         
-        if torch.tensor([self.batches, self.y_output, self.x_output, self.output_ch]).tolist() != \
+        if torch.tensor([self.batches, self.output_ch, self.y_output, self.x_output]).tolist() != \
            list(out.size()):
             raise RuntimeError("Shape mismatch, need to regenerate data?")
 
@@ -375,10 +387,13 @@ class ConvSettings(TestSettings):
                                        [self.batches, self.input_ch, self.y_input, self.x_input])
         else:
             # NHWC
+            print("Input shape: ", [self.batches, self.input_ch, self.y_input, self.x_input]
+                  )
             input_data = self.get_randomized_data([self.batches, self.input_ch, self.y_input, self.x_input],
                                                                self.inputs_table_file,
                                                                regenerate=self.regenerate_new_input).clone().detach()
             # NHWC -> NCHW
+            print("Input shape: ", input_data.size())
         if weights is not None:
             weights = torch.reshape(torch.tensor(weights), 
                                     [self.output_ch, self.input_ch, self.filter_y, self.filter_x])
@@ -388,6 +403,7 @@ class ConvSettings(TestSettings):
                                                 self.kernel_table_file,
                                                 regenerate=self.regenerate_new_weights).clone().detach()
             # NHWC -> NCHW
+            print("Weights shape: ", weights.size())
         if biases is not None:
             biases = torch.reshape(torch.tensor(biases), [self.output_ch])
         else:
@@ -395,7 +411,7 @@ class ConvSettings(TestSettings):
             biases = self.get_randomized_data([self.output_ch],
                                             self.bias_table_file,
                                             regenerate=self.regenerate_new_bias).clone().detach()
-
+        print("Biases shape: ", biases.size())
         # Generate conv reference
         conv = self.convolution(input_data, weights, biases)
         
@@ -411,9 +427,41 @@ class ConvSettings(TestSettings):
         self.write_c_config_header()
         self.write_c_header_wrapper()
 
+
+
+from template.main import include, gen_code, CCNT, setup
+
 if __name__ == '__main__':
     args = parse_args()
-    generator = ConvSettings(args, in_ch=3, out_ch=32, x_in=32, y_in=32, w_x=5, w_y=5, stride_x=1, stride_y=1,
-                                pad=True, randmin=1, randmax=4, outminrange=-126, outmaxrange=127)
+    
+    
+    generator = ConvSettings(args, 
+                             in_ch=CONFIG['INPUT_PARAMS']['IM_IN_CH'], 
+                             out_ch=CONFIG['CONV']['CONV_OUT_CH'], 
+                             x_in=CONFIG['INPUT_PARAMS']['IM_DIM_H'], 
+                             y_in=CONFIG['INPUT_PARAMS']['IM_DIM_W'], 
+                             w_x=CONFIG['CONV']['CONV_KER_DIM_H'], 
+                             w_y=CONFIG['CONV']['CONV_KER_DIM_W'], 
+                             stride_x=CONFIG['CONV']['CONV_STRIDE_H'], 
+                             stride_y=CONFIG['CONV']['CONV_STRIDE_W'],
+                             pad= CONFIG['CONV']['PADDING'], 
+                             randmin=1, randmax=4, outminrange=-128, outmaxrange=127)
+
     generator.generate_data()
+    
+    FILENAME = os.path.join(CONFIG['ARGS']['FILENAME'], 'exp2_TFLM.cpp')
+    with open(FILENAME, 'w') as f:
+        f.write('\n'.join(include()))
+        f.write('\n'.join(CCNT()))
+        f.write('\n'.join(setup(CONFIG)))
+        f.write('\n'.join(gen_code(CONFIG)))
+        
+    import shutil
+    
+    shutil.move('./symmetric/exp2_TFLM.cpp', '../../on_line/src/exp2_TFLM.cpp')
+    shutil.rmtree('./PregeneratedData/')
+    if not os.path.exists('../../on_line/lib/Modules/symmetric/'):
+        shutil.rmtree('../../on_line/lib/Modules/symmetric/')
+    else:
+        shutil.move('./symmetric/', '../../on_line/lib/Modules/symmetric/')
     
