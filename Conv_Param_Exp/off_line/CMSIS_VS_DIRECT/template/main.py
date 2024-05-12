@@ -20,15 +20,21 @@ Out shift = (fi + fw) - fo
 즉, bias shift와 out shift를 계산하기 위해서는 입력, 가중치 및 출력의 소수점 비트 수를 알아야 합니다. 
 이 값을 사용하여 주어진 식을 이용해 쉬프트 값을 계산하면 됩니다.
 """
-def setup(tmp:list = []):
+def setup(kwargs):
+    tmp:list = []
     tmp.append('\nvoid setup() {')
     tmp.append('    Serial.begin(115200);')
-    tmp.append('    SCB_EnableICache();')
-    tmp.append('    SCB_EnableDCache();')
+    if kwargs['OPTIMIZING']['CACHE']:
+        tmp.append('    SCB_EnableICache();')
+        tmp.append('    SCB_EnableDCache();')
+    else:
+        tmp.append('    SCB_DisableDCache();')
+        tmp.append('    SCB_DisableICache();')
     tmp.append('}')
     return tmp
 
-def CCNT(tmp:list = []):
+def CCNT(kwargs=None):
+    tmp:list = []
     tmp.append('\nvoid reset_cnt()')
     tmp.append('{')
     tmp.append('    CoreDebug->DEMCR |= 0x01000000;')
@@ -77,7 +83,8 @@ def CCNT(tmp:list = []):
     tmp.append('}')
     return tmp
 
-def include(tmp:list=[]):
+def include(kwargs=None):
+    tmp:list=[]
     tmp.append('#include <Arduino.h>')
     tmp.append('#include "arm_nnsupportfunctions.h"')
     tmp.append('#include "arm_math.h"')
@@ -91,34 +98,49 @@ def include(tmp:list=[]):
     tmp.append('#define ARM_MATH_DSP')
     return tmp
 
-def gen_code(tmp:list = [], conv1=None, conv2=None):
+def gen_code(kwargs):
+    tmp:list = []
+    ####################################################################
     tmp.append('\nvoid loop() {')
-    tmp.append('    printf("start execution\\n");')
-    tmp.append('    memset(conv_out_nhwc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);')
-    tmp.append('    memset(conv_out_hwnc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);')
+    if kwargs['OPTIMIZING']['IM2COL']:
+        tmp.append('    printf("start execution\\n");')
+        tmp.append('    memset(conv_out_nhwc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);')
+        tmp.append('    q7_t     *res1 = conv_out_nhwc;')
+        tmp.append('    q7_t     *img_buffer = input_data;')
+        tmp.append('    printf("---------------ARM CMSIS Im2Col Convolution------------------\\n");')
+        tmp.append('    unsigned long start = micros();')
+        if kwargs['OPTIMIZING']['WEIGHT_INTERLEAVING'] == 'RGB':
+            tmp.append('    arm_convolve_HWC_q7_RGB_Im2Col(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_nhwc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,')
+        else:
+            tmp.append('    arm_convolve_HWC_q7_fast_Im2Col(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_nhwc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,')
+        tmp.append('                            CONV_STRIDE_H, conv_bias, CONV_BIAS_LSHIFT, CONV_OUT_RSHIFT, res1, CONV_OUT_DIM_H,')
+        tmp.append('                            (q15_t *) col_buffer, NULL);')
+        tmp.append('    unsigned long end = micros();')
+        tmp.append('    printf("CMSIS Im2Col Conv Time = %d\\n", end-start);')
+    ######################################################
+    
+    tmp.append('    printf("---------Direct Convolution--------------\\n");')
     tmp.append('    memset(conv_buf, 0, CONV_OUT_CH);')
-    tmp.append('    q7_t     *res1 = conv_out_nhwc;')
+    tmp.append('    memset(conv_out_hwnc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);')
     tmp.append('    q7_t     *res2 = conv_out_hwnc;')
-    tmp.append('    q7_t     *img_buffer = input_data;')
-    tmp.append('    printf("---------------Naive Direct Convolution------------------\\n");')
-    tmp.append('    unsigned long start = micros();')
-    tmp.append('    arm_convolve_HWC_q7_RGB_Direct(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_nhwc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,')
-    tmp.append('                            CONV_STRIDE_H, conv_bias, CONV_BIAS_LSHIFT, CONV_OUT_RSHIFT, res1, CONV_OUT_DIM_H,')
-    tmp.append('                            (q15_t *) col_buffer, NULL);')
-    tmp.append('    unsigned long end = micros();')
-    tmp.append('    printf("Naive Conv Time = %d\\n", end-start);')
-    tmp.append('    printf("---------Custom Dot-product Convolution--------------\\n");')
     tmp.append('    start = micros();')
-    tmp.append('    convolve_HWC_q7_RGB_Direct_HWNC(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_hwnc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,')
+    if kwargs['OPTIMIZING']['WEIGHT_INTERLEAVING'] == 'RGB':
+        tmp.append('    convolve_HWC_q7_RGB_Direct_HWNC_SIMD_fast(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_hwnc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,')
+    else:
+        tmp.append('    convolve_HWC_q7_Ch4_Direct_HWNC_SIMD_Optim_ch(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_hwnc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,')
     tmp.append('                                CONV_STRIDE_H, conv_bias, CONV_BIAS_LSHIFT, CONV_OUT_RSHIFT, res2, CONV_OUT_DIM_H,')
     tmp.append('                                (q31_t *) conv_buf, NULL);')
     tmp.append('    end = micros();')
-    tmp.append('    printf("Time = %d\\n", end-start);')
+    tmp.append('    printf("Direct Conv Time = %d\\n", end-start);')
+        
     tmp.append('    if (validate_s8(res1, res2, CONV_OUT_CH * CONV_OUT_DIM_H * CONV_OUT_DIM_W)){')
     tmp.append('        printf("Custom Conv is correct\\n");')
     tmp.append('    }else{')
     tmp.append('        printf("Custom Conv is wrong\\n");')
     tmp.append('    }')
+    
+    
     tmp.append('    delay(3000);')
     tmp.append('}')
+    
     return tmp
