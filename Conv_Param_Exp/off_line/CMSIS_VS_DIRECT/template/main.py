@@ -140,7 +140,7 @@ def gen_code(kwargs):
     tmp.append('    }')
     
     
-    tmp.append('    delay(3000);')
+    # tmp.append('    delay(3000);')
     tmp.append('}')
     
     return tmp

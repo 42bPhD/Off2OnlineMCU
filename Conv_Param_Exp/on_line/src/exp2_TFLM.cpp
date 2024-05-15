@@ -82,5 +82,4 @@ void loop() {
                                 TFLM_OUT_ACTIVATION_MAX, TFLM_OUT_CONV_W, TFLM_OUT_CONV_H, (q15_t *) col_buffer);
     end = micros();
     printf("TFLM Im2Col Conv Time = %d\n", end-start);
-    delay(3000);
 }

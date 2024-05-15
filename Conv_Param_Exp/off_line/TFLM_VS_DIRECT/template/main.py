@@ -12,7 +12,7 @@ def setup(kwargs):
     tmp.append('}')
     return tmp
 
-def CCNT(kwargs=None):
+def CCNT(kwargs=None, delay_output=False):
     tmp:list = []
     tmp.append('\nvoid reset_cnt()')
     tmp.append('{')
@@ -108,7 +108,7 @@ def gen_code(kwargs):
     tmp.append('                                TFLM_OUT_ACTIVATION_MAX, TFLM_OUT_CONV_W, TFLM_OUT_CONV_H, (q15_t *) col_buffer);')
     tmp.append('    end = micros();')
     tmp.append('    printf("TFLM Im2Col Conv Time = %d\\n", end-start);')
-    tmp.append('    delay(3000);')
+    # tmp.append('    delay(3000);')
     tmp.append('}')
     
     return tmp

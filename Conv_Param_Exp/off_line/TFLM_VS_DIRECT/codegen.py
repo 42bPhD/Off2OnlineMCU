@@ -446,22 +446,29 @@ if __name__ == '__main__':
                              stride_y=CONFIG['CONV']['CONV_STRIDE_W'],
                              pad= CONFIG['CONV']['PADDING'], 
                              randmin=1, randmax=4, outminrange=-128, outmaxrange=127)
-
-    generator.generate_data()
     
+    import shutil
+    # make sure the output directory exists
+    if os.path.isdir('./symmetric/'):
+        shutil.rmtree('./symmetric/')
+    # generate the data
+    generator.generate_data()    
+    # generate the main c-code
     FILENAME = os.path.join(CONFIG['ARGS']['FILENAME'], 'exp2_TFLM.cpp')
     with open(FILENAME, 'w') as f:
         f.write('\n'.join(include()))
         f.write('\n'.join(CCNT()))
         f.write('\n'.join(setup(CONFIG)))
         f.write('\n'.join(gen_code(CONFIG)))
-        
-    import shutil
-    
-    shutil.move('./symmetric/exp2_TFLM.cpp', '../../on_line/src/exp2_TFLM.cpp')
-    shutil.rmtree('./PregeneratedData/')
-    if not os.path.exists('../../on_line/lib/Modules/symmetric/'):
+    # move the generated files to the correct directories
+    if os.path.exists('./symmetric/exp2_TFLM.cpp'):
+        shutil.move('./symmetric/exp2_TFLM.cpp', '../../on_line/src/exp2_TFLM.cpp')
+    # move the generated files to the correct directories
+    if os.path.exists('../../on_line/lib/Modules/symmetric/'):
         shutil.rmtree('../../on_line/lib/Modules/symmetric/')
-    else:
-        shutil.move('./symmetric/', '../../on_line/lib/Modules/symmetric/')
+    # move the generated files to the correct directories
+    # if os.path.exists('./PregeneratedData/'):
+    #     shutil.rmtree('./PregeneratedData/')
+    # move the generated files to the correct directories
+    shutil.move('./symmetric/', '../../on_line/lib/Modules/symmetric/')
     
