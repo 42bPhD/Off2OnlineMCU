@@ -103,7 +103,7 @@ def gen_code(kwargs):
     ####################################################################
     tmp.append('\nvoid loop() {')
     if kwargs['OPTIMIZING']['IM2COL']:
-        tmp.append('    printf("start execution\\n");')
+        # tmp.append('    printf("start execution\\n");')
         tmp.append('    memset(conv_out_nhwc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);')
         tmp.append('    q7_t     *res1 = conv_out_nhwc;')
         tmp.append('    q7_t     *img_buffer = input_data;')
@@ -119,7 +119,7 @@ def gen_code(kwargs):
         tmp.append('    printf("CMSIS Im2Col Conv Time = %d\\n", end-start);')
     ######################################################
     
-    tmp.append('    printf("---------Direct Convolution--------------\\n");')
+    tmp.append('    printf("---------------Direct Convolution--------------\\n");')
     tmp.append('    memset(conv_buf, 0, CONV_OUT_CH);')
     tmp.append('    memset(conv_out_hwnc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);')
     tmp.append('    q7_t     *res2 = conv_out_hwnc;')

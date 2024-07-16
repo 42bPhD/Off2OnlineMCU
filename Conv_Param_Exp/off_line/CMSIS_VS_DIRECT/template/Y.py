@@ -2,14 +2,14 @@ from torch import nn
 from torch.functional import F
 from fxpmath import Fxp
 
-def conv_format(CONFIG, bit=8):
+def conv_format(CONFIG, bit=8, **kwargs):
     if CONFIG['ARGS']['CONV_TYPE'] == 'conv2d':
         print(CONFIG['CONV']['CONV_IN_CH'])
         conv2d = nn.Conv2d(in_channels= int(CONFIG['CONV']['CONV_IN_CH']), 
                         out_channels= CONFIG['CONV']['CONV_OUT_CH'], 
                         kernel_size=(CONFIG['CONV']['CONV_KER_DIM_H'], CONFIG['CONV']['CONV_KER_DIM_W']),
                         stride=(CONFIG['CONV']['CONV_STRIDE_H'], CONFIG['CONV']['CONV_STRIDE_W']),
-                        padding_mode=CONFIG['CONV']['PADMODE'],
+                        padding = (kwargs['padding_h'], kwargs['padding_w']),
                         dilation=CONFIG['CONV']['DILATION'],
                         groups=CONFIG['CONV']['GROUPS'],
                         bias=CONFIG['CONV']['BIAS'])
@@ -30,7 +30,7 @@ def conv_format(CONFIG, bit=8):
                         out_channels= CONFIG['CONV']['CONV_OUT_CH'], 
                         kernel_size=(CONFIG['CONV']['CONV_KER_DIM_H'], CONFIG['CONV']['CONV_KER_DIM_W']),
                         stride=(CONFIG['CONV']['CONV_STRIDE_H'], CONFIG['CONV']['CONV_STRIDE_W']),
-                        padding_mode=CONFIG['CONV']['PADMODE'],
+                        padding_mode= 1 if CONFIG['CONV']['PADMODE'] == 'same' else 0,
                         dilation=CONFIG['CONV']['DILATION'],
                         groups=CONFIG['CONV']['CONV_IN_CH'], 
                         bias=CONFIG['CONV']['BIAS'])
@@ -51,7 +51,7 @@ def conv_format(CONFIG, bit=8):
                         out_channels= CONFIG['CONV']['CONV_OUT_CH'], 
                         kernel_size=(1, 1),
                         stride=(1, 1),
-                        padding_mode=CONFIG['CONV']['PADMODE'],
+                        padding_mode= 1 if CONFIG['CONV']['PADMODE'] == 'same' else 0,
                         dilation=CONFIG['CONV']['DILATION'],
                         groups=1,
                         bias=CONFIG['CONV']['BIAS'])

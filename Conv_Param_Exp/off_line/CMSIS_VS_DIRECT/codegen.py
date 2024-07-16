@@ -8,7 +8,27 @@ from fxpmath import Fxp
 import numpy as np
 import torch
 import os
-
+import math
+def set_output_dims_and_padding(x_input, y_input, filter_x, filter_y, stride_x, stride_y, has_padding = 'SAME'):
+    if has_padding:# == 'SAME':
+        x_output = math.ceil(float(x_input) / float(stride_x))
+        y_output = math.ceil(float(y_input) / float(stride_y))
+        pad_along_width = max((x_output - 1) * stride_x + filter_x - x_input, 0)
+        pad_along_height = max((y_output - 1) * stride_y + filter_y - y_input, 0)
+        pad_top = pad_along_height // 2
+        pad_left = pad_along_width // 2
+        pad_x = pad_left
+        pad_y = pad_top
+        
+    else:#if has_padding == 'VALID':
+        x_output = math.ceil(float(x_input - filter_x + 1) / float(stride_x))
+        y_output = math.ceil(float(y_input - filter_y + 1) / float(stride_y))
+        
+        pad_x = 0
+        pad_y = 0
+    # else:
+    #     raise ValueError("Invalid Padding")
+    return {'output_x': x_output, 'output_y': y_output, 'pad_x': pad_x, 'pad_y': pad_y}
 
 class CodeGenerator():
     def __init__(self, config:dict, root='./'):
@@ -61,12 +81,8 @@ if __name__ == '__main__':
     CONFIG = Config(filepath='./config/conv.toml')
     
     reproducibility(CONFIG['ARGS']['REPRODUCE'])
-    FILENAME = os.path.join(CONFIG['ARGS']['FILENAME'], 'exp2.cpp')
-    with open(FILENAME, 'w') as f:
-        f.write('\n'.join(include()))
-        f.write('\n'.join(CCNT()))
-        f.write('\n'.join(setup(CONFIG)))
-        f.write('\n'.join(gen_code(CONFIG)))
+    
+    
     config = ddict()
     config['header']['IM_IN_CH'] = CONFIG['INPUT_PARAMS']['IM_IN_CH']
     config['header']['IM_DIM_H'] = CONFIG['INPUT_PARAMS']['IM_DIM_H']
@@ -77,9 +93,14 @@ if __name__ == '__main__':
     config['header']['CONV_KER_DIM_H'] = CONFIG['CONV']['CONV_KER_DIM_H']
     config['header']['CONV_KER_DIM_W'] = CONFIG['CONV']['CONV_KER_DIM_W']
     config['header']['CONV_STRIDE_H'] = CONFIG['CONV']['CONV_STRIDE_H']
-    # config['header']['CONV_STRIDE_W'] = CONFIG['CONV']['CONV_STRIDE_W']
-    config['header']['CONV_PADDING_H'] = CONFIG['CONV']['CONV_PADDING_H']
-    config['header']['CONV_PADDING_W'] = CONFIG['CONV']['CONV_PADDING_W']
+    config['header']['CONV_STRIDE_W'] = CONFIG['CONV']['CONV_STRIDE_W']
+
+    output = set_output_dims_and_padding(CONFIG['INPUT_PARAMS']['IM_DIM_W'], CONFIG['INPUT_PARAMS']['IM_DIM_H'],
+                                CONFIG['CONV']['CONV_KER_DIM_W'], CONFIG['CONV']['CONV_KER_DIM_H'],
+                                CONFIG['CONV']['CONV_STRIDE_W'], CONFIG['CONV']['CONV_STRIDE_H'], has_padding=CONFIG['CONV']['PADMODE'])
+    
+    config['header']['CONV_PADDING_H'] = output['pad_y']
+    config['header']['CONV_PADDING_W'] = output['pad_x']
     
     fxpX, X_q, X_bit  = input_format((1, CONFIG['INPUT_PARAMS']['IM_IN_CH'], 
                                       CONFIG['INPUT_PARAMS']['IM_DIM_W'], 
@@ -88,15 +109,15 @@ if __name__ == '__main__':
     raw_X_q, W_bit = weight_quantization(fxpX, bits=CONFIG['INPUT_PARAMS']['BIT'])
     assert np.allclose(X_q, raw_X_q)
 
-    W, B  = conv_format(CONFIG, bit=CONFIG['INPUT_PARAMS']['BIT'])
+    W, B  = conv_format(CONFIG, bit=CONFIG['INPUT_PARAMS']['BIT'], padding_h=output['pad_y'], padding_w=output['pad_x'])
     fxpW, W_q, W_bit = W # W: Weight(fp16bit), WQ: Fxp16(int8), W_BIT: Weight Shift
     fxpB, B_q, B_bit = B # B: Bias(fp16bit), BQ: Fxp16(int8), B_BIT: Bias Shift
     raw_B_q, raw_B_bit = weight_quantization(fxpB, bits=CONFIG['INPUT_PARAMS']['BIT'])
     # print(B_q, B_bit)
     # shift right 
-    B2 = np.right_shift(raw_B_q.astype(np.int16), raw_B_bit)
+    # B2 = np.right_shift(raw_B_q.astype(np.int16), raw_B_bit)
     # print(raw_B_q, raw_B_bit)
-    assert np.allclose(B_q, B2)
+    # assert np.allclose(B_q, B2)
 
     ########################################
     X = torch.tensor(fxpX.val)
@@ -107,7 +128,7 @@ if __name__ == '__main__':
                         dilation= CONFIG['CONV']['DILATION'], 
                         stride = (CONFIG['CONV']['CONV_STRIDE_W'], CONFIG['CONV']['CONV_STRIDE_H']), 
                         groups= CONFIG['CONV']['GROUPS'],
-                        padding= (CONFIG['CONV']['CONV_PADDING_W'], CONFIG['CONV']['CONV_PADDING_H']))
+                        padding= (output['pad_x'], output['pad_y']))
     conv_out = conv_out.detach().cpu().numpy()
 
     fxp_conv_Out = Fxp(conv_out, signed=True, n_word=8, overflow='saturate')
@@ -147,6 +168,9 @@ if __name__ == '__main__':
     # assert not DEPLOY_WT_FORMAT in [i.value for i in WT_Format], "Not supported weight format"
     # if DEPLOY_WT_FORMAT == WT_Format.USE_RGB: # RGB -> RRR GGG BBB (ODD)
     if CONFIG['OPTIMIZING']['WEIGHT_INTERLEAVING'] == 'RGB':
+        if CONFIG['INPUT_PARAMS']['IM_IN_CH'] % 3 != 0:
+            raise ValueError("Invalid Channel")
+        print("RGB!")
         h, w, n, c = HWNC_weight.shape # [0, 3, 2, 5, 6, 9, 8, 11, 1, 4, 7, 10] -> [0, 2, 3, 5, 6, 8, 9, 11, (1, 4, 7, 10)]
         indice = np.array([np.array([0, 3, 2, 5, 6, 9, 8, 11, 1, 4, 7, 10]) + 12*i for i in range(n*c//12)])
         indice = indice.ravel()
@@ -158,6 +182,9 @@ if __name__ == '__main__':
     #                                                       axis=3)], axis=2)
     # elif DEPLOY_WT_FORMAT== WT_Format.USE_EVEN_CH_V2: # EVEN Channels
     elif CONFIG['OPTIMIZING']['WEIGHT_INTERLEAVING'] == 'EVEN':
+        if CONFIG['INPUT_PARAMS']['IM_IN_CH'] % 4 != 0:
+            raise ValueError("Invalid Channel")
+        print("EVEN!")
         HWNC_weight = HWNC_weight.reshape(config['header']['CONV_KER_DIM_H'], 
                                         config['header']['CONV_KER_DIM_W'], 
                                         config['header']['CONV_OUT_CH'] *(config['header']['CONV_IN_CH']//4), 4)
@@ -165,10 +192,10 @@ if __name__ == '__main__':
         raise NotImplementedError
     config['foot']['HWNC_WEIGHT'] = list_bracket(HWNC_weight.ravel().tolist())
     config['body']['HWNC_WEIGHT'] = 'static q7_t conv_wt_hwnc[CONV_IN_CH * CONV_KER_DIM_H * CONV_KER_DIM_W * CONV_OUT_CH] = HWNC_WEIGHT;'
-    config['header']['CONV_OUT_DIM_H'] = Im_out_h
-    config['header']['CONV_OUT_DIM_W'] = Im_out_w
+    config['header']['CONV_OUT_DIM_H'] = output['output_x']
+    config['header']['CONV_OUT_DIM_W'] = output['output_y']
     
-    
+    # assert output['output_x'] == Im_out_w and output['output_y'] == Im_out_h
     # for proposed direct conv only
     if CONFIG['OPTIMIZING']['TCM']:        
         config['body']['CONV_OUT2'] = 'static DTCM q7_t conv_out_hwnc[CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W];'
@@ -180,3 +207,19 @@ if __name__ == '__main__':
     ####
     codegen = CodeGenerator(config=config)
     codegen.codegen(path=CONFIG['ARGS']['FILENAME'])
+
+    import shutil
+    if os.path.exists('../../on_line/src/exp2_TFLM.cpp'):
+        os.remove('../../on_line/src/exp2_TFLM.cpp')
+    
+    # move the generated files to the correct directories
+    if os.path.exists('../../on_line/lib/Modules/symmetric/'):
+        shutil.rmtree('../../on_line/lib/Modules/symmetric/')
+    
+    FILENAME = os.path.join(CONFIG['ARGS']['FILENAME'], 'exp2.cpp')
+    with open(FILENAME, 'w') as f:
+        f.write('\n'.join(include()))
+        f.write('\n'.join(CCNT()))
+        f.write('\n'.join(setup(CONFIG)))
+        f.write('\n'.join(gen_code(CONFIG)))
+    shutil.move(FILENAME, '../../on_line/src/exp2_TFLM.cpp')

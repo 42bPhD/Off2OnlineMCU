@@ -7,7 +7,6 @@
 #include "parameter.h"
 #include "weights.h"
 #include "modules.h"
-#include "symmetric/test_data.h"
 #define ARM_MATH_LOOPUNROLL
 #define ARM_MATH_DSP
 void reset_cnt()
@@ -62,7 +61,6 @@ void setup() {
     SCB_EnableDCache();
 }
 void loop() {
-    printf("start execution\n");
     memset(conv_out_nhwc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);
     q7_t     *res1 = conv_out_nhwc;
     q7_t     *img_buffer = input_data;
@@ -73,13 +71,19 @@ void loop() {
                             (q15_t *) col_buffer, NULL);
     unsigned long end = micros();
     printf("CMSIS Im2Col Conv Time = %d\n", end-start);
-    printf("---------TFLM Symmetric Im2Col Convolution--------------\n");
+    printf("---------------Direct Convolution--------------\n");
+    memset(conv_buf, 0, CONV_OUT_CH);
+    memset(conv_out_hwnc, 0, CONV_OUT_CH*CONV_OUT_DIM_H*CONV_OUT_DIM_W);
+    q7_t     *res2 = conv_out_hwnc;
     start = micros();
-    arm_im2col_convolve_s8_opt(img_buffer, TFLM_CONV_W, TFLM_CONV_H, TFLM_IN_CH, TFLM_INPUT_BATCHES,
-                                TFLM_weights, TFLM_OUT_CH, TFLM_FILTER_X, TFLM_FILTER_Y, TFLM_PAD_X, TFLM_PAD_Y,
-                                TFLM_STRIDE_X, TFLM_STRIDE_Y, TFLM_biases, (q7_t *)TFLM_output_ref, TFLM_output_shift,
-                                TFLM_output_mult, TFLM_OUTPUT_OFFSET, TFLM_INPUT_OFFSET, TFLM_OUT_ACTIVATION_MIN,
-                                TFLM_OUT_ACTIVATION_MAX, TFLM_OUT_CONV_W, TFLM_OUT_CONV_H, (q15_t *) col_buffer);
+    convolve_HWC_q7_RGB_Direct_HWNC_SIMD_fast(img_buffer, IM_DIM_H, IM_IN_CH, conv_wt_hwnc, CONV_OUT_CH, CONV_KER_DIM_H, CONV_PADDING_H,
+                                CONV_STRIDE_H, conv_bias, CONV_BIAS_LSHIFT, CONV_OUT_RSHIFT, res2, CONV_OUT_DIM_H,
+                                (q31_t *) conv_buf, NULL);
     end = micros();
-    printf("TFLM Im2Col Conv Time = %d\n", end-start);
+    printf("Direct Conv Time = %d\n", end-start);
+    if (validate_s8(res1, res2, CONV_OUT_CH * CONV_OUT_DIM_H * CONV_OUT_DIM_W)){
+        printf("Custom Conv is correct\n");
+    }else{
+        printf("Custom Conv is wrong\n");
+    }
 }

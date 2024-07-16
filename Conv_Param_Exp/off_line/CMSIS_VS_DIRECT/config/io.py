@@ -59,3 +59,9 @@ class TOMLConfig:
 
     def __repr__(self):
         return '\n'.join([f'[{section}]' + '\n' + '\n'.join([f'{key} = {value}' for key, value in self.config[section].items()]) for section in self.config])
+
+    def save(self, filepath=None):
+        if filepath is None:
+            filepath = self.filepath
+        with open(filepath, 'w', encoding='utf8') as file:
+            toml.dump(self.config, file)

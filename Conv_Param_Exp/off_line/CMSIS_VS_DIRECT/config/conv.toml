@@ -1,31 +1,30 @@
 [ARGS]
-FILENAME = '../../on_line/lib/Modules/'
-CONV_TYPE = 'conv2d' # conv2d, conv2d_dw, conv2d_pw, conv2d_dw_pw
+FILENAME = "../../on_line/lib/Modules/"
+CONV_TYPE = "conv2d"
 REPRODUCE = 1
 
-[INPUT_PARAMS] # HWC
-IM_DIM_H = 32
-IM_DIM_W = 32
+[INPUT_PARAMS]
+IM_DIM_H = 96
+IM_DIM_W = 96
 IM_IN_CH = 3
 BIT = 8
-[CONV] # NHWC
-CONV_IN_CH = "${INPUT_PARAMS.IM_IN_CH}"
+
+[CONV]
+CONV_IN_CH = 3
 CONV_KER_DIM_H = 3
 CONV_KER_DIM_W = 3
-CONV_OUT_CH = 64
-CONV_STRIDE_W=1
-CONV_STRIDE_H = 1
-CONV_PADDING_H = 1
-CONV_PADDING_W = 1
-PADDING = "SAME" # SAME, VALID
-PADMODE = "zeros"
+CONV_OUT_CH = 16
+CONV_STRIDE_W = 2
+CONV_STRIDE_H = 2
+PADMODE = 1
 DILATION = 1
 GROUPS = 1
 BIAS = 1
+
 [OPTIMIZING]
-TCM = 0 # TCM 여부
-CACHE = 1 # Cache 사용 여부
-PIPELINING = 1 # Pipelining 사용 여부
-LOOP_UNROLLING = 1 # Loop Unrolling 사용 여부
-WEIGHT_INTERLEAVING = 'RGB' # Loop Interleaving 사용 여부(RGB or EVEN)
-IM2COL = 1 # Im2Col 사용 여부
+TCM = 1
+CACHE = 1
+PIPELINING = 1
+LOOP_UNROLLING = 1
+WEIGHT_INTERLEAVING = "RGB"
+IM2COL = 1
