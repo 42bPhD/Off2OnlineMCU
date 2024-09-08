@@ -30,6 +30,7 @@ https://github.com/ARM-software/CMSIS_5
 
 ## Cite
 
+```
 @article{lee2024optimizing,
   title={Optimizing RGB Convolution on Cortex-M7 MCU: Approaches for Performance Improvement},
   author={Lee, Seon-Woo and Sung, Jae-Mo and Kwon, Jang-Woo},
@@ -37,3 +38,4 @@ https://github.com/ARM-software/CMSIS_5
   year={2024},
   publisher={IEEE}
 }
+```
