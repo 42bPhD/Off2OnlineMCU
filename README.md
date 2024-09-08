@@ -28,3 +28,12 @@ https://github.com/ARM-software/CMSIS_5
 
 `ARM_STFT_ISTFT.c`: STFT and ISTFT for ARM boards (same with libosa's implementation)
 
+## Cite
+
+@article{lee2024optimizing,
+  title={Optimizing RGB Convolution on Cortex-M7 MCU: Approaches for Performance Improvement},
+  author={Lee, Seon-Woo and Sung, Jae-Mo and Kwon, Jang-Woo},
+  journal={IEEE Access},
+  year={2024},
+  publisher={IEEE}
+}
